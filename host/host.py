@@ -43,6 +43,7 @@ MSG_PING = 17
 DEFAULT_CONFIG = {
     "port": 47000,
     "pin": "",
+    "adapter": 0,
     "monitor": 0,
     "fps": 60,
     "bitrate_mbps": 20,
@@ -159,15 +160,94 @@ def enum_monitors():
     return rects
 
 
+# --- DXGI enumeration (same order ddagrab uses: adapter -> output) ---
+
+class GUID(ctypes.Structure):
+    _fields_ = [("Data1", ctypes.c_uint32), ("Data2", ctypes.c_uint16), ("Data3", ctypes.c_uint16),
+                ("Data4", ctypes.c_ubyte * 8)]
+
+
+IID_IDXGIFactory1 = GUID(0x770AAE78, 0xF26F, 0x4DBA, (ctypes.c_ubyte * 8)(0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87))
+
+
+class DXGI_OUTPUT_DESC(ctypes.Structure):
+    _fields_ = [("DeviceName", wt.WCHAR * 32), ("DesktopCoordinates", wt.RECT),
+                ("AttachedToDesktop", wt.BOOL), ("Rotation", ctypes.c_uint), ("Monitor", ctypes.c_void_p)]
+
+
+class DXGI_ADAPTER_DESC(ctypes.Structure):
+    _fields_ = [("Description", wt.WCHAR * 128), ("VendorId", ctypes.c_uint), ("DeviceId", ctypes.c_uint),
+                ("SubSysId", ctypes.c_uint), ("Revision", ctypes.c_uint), ("DedicatedVideoMemory", ctypes.c_size_t),
+                ("DedicatedSystemMemory", ctypes.c_size_t), ("SharedSystemMemory", ctypes.c_size_t),
+                ("AdapterLuid", ctypes.c_int64)]
+
+
+def _com_method(obj, index, restype, *argtypes):
+    vtbl = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)))[0]
+    proto = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)
+    return proto(vtbl[index])
+
+
+def _com_release(obj):
+    if obj:
+        _com_method(obj, 2, ctypes.c_ulong)(obj)
+
+
+def dxgi_outputs():
+    """Returns [(adapter_idx, adapter_name, output_idx, device_name, rect)] for attached outputs."""
+    result = []
+    try:
+        dxgi = ctypes.WinDLL("dxgi")
+        factory = ctypes.c_void_p()
+        hr = dxgi.CreateDXGIFactory1(ctypes.byref(IID_IDXGIFactory1), ctypes.byref(factory))
+        if hr != 0 or not factory:
+            return result
+        enum_adapters = _com_method(factory, 7, ctypes.c_long, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p))
+        a = 0
+        while True:
+            adapter = ctypes.c_void_p()
+            if enum_adapters(factory, a, ctypes.byref(adapter)) != 0 or not adapter:
+                break
+            adesc = DXGI_ADAPTER_DESC()
+            _com_method(adapter, 8, ctypes.c_long, ctypes.POINTER(DXGI_ADAPTER_DESC))(adapter, ctypes.byref(adesc))
+            enum_outputs = _com_method(adapter, 7, ctypes.c_long, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p))
+            o = 0
+            while True:
+                output = ctypes.c_void_p()
+                if enum_outputs(adapter, o, ctypes.byref(output)) != 0 or not output:
+                    break
+                desc = DXGI_OUTPUT_DESC()
+                _com_method(output, 7, ctypes.c_long, ctypes.POINTER(DXGI_OUTPUT_DESC))(output, ctypes.byref(desc))
+                r = desc.DesktopCoordinates
+                result.append((a, adesc.Description, o, desc.DeviceName, (r.left, r.top, r.right, r.bottom)))
+                _com_release(output)
+                o += 1
+            _com_release(adapter)
+            a += 1
+        _com_release(factory)
+    except Exception as e:
+        log("DXGI enumeration failed:", e)
+    return result
+
+
 class Injector:
-    def __init__(self, monitor_index):
-        rects = enum_monitors()
-        if not rects:
-            rects = [(0, 0, user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))]
-        if monitor_index >= len(rects):
-            log(f"monitor {monitor_index} not found, using 0")
-            monitor_index = 0
-        self.mon = rects[monitor_index]
+    def __init__(self, adapter_index, monitor_index):
+        outputs = dxgi_outputs()
+        rect = None
+        for a, aname, o, dname, r in outputs:
+            if a == adapter_index and o == monitor_index:
+                rect = r
+                log(f"capture target: adapter {a} ({aname}) output {o} {dname} rect {r}")
+        if rect is None:
+            rects = enum_monitors()
+            if not rects:
+                rects = [(0, 0, user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))]
+            if monitor_index >= len(rects):
+                log(f"monitor {monitor_index} not found, using 0")
+                monitor_index = 0
+            rect = rects[monitor_index]
+            log("DXGI output not found, falling back to EnumDisplayMonitors:", rect)
+        self.mon = rect
         self.vx = user32.GetSystemMetrics(SM_XVIRTUALSCREEN)
         self.vy = user32.GetSystemMetrics(SM_YVIRTUALSCREEN)
         self.vw = user32.GetSystemMetrics(SM_CXVIRTUALSCREEN)
@@ -283,9 +363,11 @@ def build_ffmpeg_cmd(ffmpeg, cfg, encoder, rtp_port):
     gop = int(cfg["gop"])
     br = f"{cfg['bitrate_mbps']}M"
     grab = f"ddagrab=output_idx={int(cfg['monitor'])}:framerate={fps}:draw_mouse=1"
+    adapter = int(cfg.get("adapter") or 0)
+    device = "d3d11va" if adapter == 0 else f"d3d11va:{adapter}"
     cmd = [
         ffmpeg, "-hide_banner", "-loglevel", "warning", "-nostats",
-        "-init_hw_device", "d3d11va",
+        "-init_hw_device", device,
         "-filter_complex",
     ]
     scale_w = int(cfg.get("scale_width") or 0)
@@ -444,7 +526,7 @@ class Session:
         try:
             if not self.handshake():
                 return
-            self.inj = Injector(int(self.cfg["monitor"]))
+            self.inj = Injector(int(self.cfg.get("adapter") or 0), int(self.cfg["monitor"]))
             info = {
                 "width": self.inj.width,
                 "height": self.inj.height,
@@ -688,6 +770,9 @@ def main():
         sys.exit(1)
     encoder = pick_encoder(ffmpeg, cfg["encoder"])
     log(f"ffmpeg: {ffmpeg}  encoder: {encoder}")
+    for a, aname, o, dname, r in dxgi_outputs():
+        mark = " <- selected" if a == int(cfg.get("adapter") or 0) and o == int(cfg["monitor"]) else ""
+        log(f"display: adapter={a} monitor={o} {dname} {r[2] - r[0]}x{r[3] - r[1]} at ({r[0]},{r[1]}) [{aname}]{mark}")
 
     threading.Thread(target=discovery_loop, args=(cfg,), daemon=True).start()
 

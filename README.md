@@ -29,13 +29,16 @@ python host.py
 | --- | --- | --- |
 | port | 接続用 TCP ポート | 47000 |
 | pin | 接続 PIN (空なら無し) | "" |
-| monitor | 配信するモニタ番号 (0 が主) | 0 |
+| adapter | GPU 番号 (DXGI のアダプタ順) | 0 |
+| monitor | その GPU に繋がったモニタ番号 (DXGI の出力順) | 0 |
 | fps | フレームレート | 60 |
 | bitrate_mbps | ビットレート (Mbps) | 20 |
 | encoder | auto / h264_nvenc / h264_amf / h264_qsv / libx264 | auto |
 | scale_width | 配信解像度の幅 (0 で等倍) | 0 |
 | gop | キーフレーム間隔 (フレーム数) | 60 |
 | max_backlog_frames | 送信待ちがこれを超えたらフレームを捨てる | 3 |
+
+起動時に `display: adapter=0 monitor=0 ...` の形で接続中のモニタ一覧が出ます。別のモニタを配信したいときは、その行の adapter / monitor の値を config.json に書いてください。配信するモニタとクリック座標の変換は同じ DXGI の列挙を使うので、ずれません。
 
 遅延を最優先するなら fps 60 / scale_width 0 のまま、Wi-Fi が弱いときは bitrate_mbps を 10 前後、scale_width を 1600 などに下げてください。
 

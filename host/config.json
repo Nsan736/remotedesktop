@@ -1,6 +1,7 @@
 {
   "port": 47000,
   "pin": "",
+  "adapter": 0,
   "monitor": 0,
   "fps": 60,
   "bitrate_mbps": 20,
