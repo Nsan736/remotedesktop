@@ -39,6 +39,16 @@ python host.py
 
 遅延を最優先するなら fps 60 / scale_width 0 のまま、Wi-Fi が弱いときは bitrate_mbps を 10 前後、scale_width を 1600 などに下げてください。
 
+## LiveContainer / AltStore のソースとして追加する
+
+Actions が成功するたびに GitHub Release の `latest` タグへ IPA と `app.json` を公開します。LiveContainer (または AltStore) のソース追加画面に次の URL を入れると、アプリ一覧に RemoteDesk が出てインストール・更新できます。
+
+```
+https://github.com/Nsan736/remotedesktop/releases/download/latest/app.json
+```
+
+この URL は認証なしでアクセスされるため、リポジトリが public である必要があります。private のままだと LiveContainer からは取得できません。
+
 ## クライアントのビルド (GitHub Actions)
 
 1. このリポジトリを GitHub に push します。

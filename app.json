@@ -1,0 +1,28 @@
+{
+  "name": "RemoteDesk Source",
+  "identifier": "com.nsan3.remotedesk.source",
+  "sourceURL": "https://github.com/Nsan736/remotedesktop/releases/download/latest/app.json",
+  "apps": [
+    {
+      "name": "RemoteDesk",
+      "bundleIdentifier": "com.nsan3.remotedesk",
+      "developerName": "nsan3",
+      "subtitle": "Wi-Fi 内の Windows PC を低遅延で操作",
+      "localizedDescription": "同じ Wi-Fi 内の Windows PC を iPad から操作するリモートデスクトップです。NVENC の H.264 配信と VideoToolbox デコードで低遅延にし、タッチ操作をマウス操作に変換します。PC 側では host.py を起動してください。",
+      "iconURL": "https://github.com/Nsan736/remotedesktop/releases/download/latest/icon.png",
+      "tintColor": "#3478F6",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1",
+          "date": "2026-09-22",
+          "downloadURL": "https://github.com/Nsan736/remotedesktop/releases/download/latest/RemoteDesk.ipa",
+          "size": 127010,
+          "minOSVersion": "16.0",
+          "localizedDescription": "初回リリース"
+        }
+      ]
+    }
+  ]
+}

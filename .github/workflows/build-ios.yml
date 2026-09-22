@@ -5,8 +5,17 @@ on:
     branches: [main, master]
     paths:
       - "ios/**"
+      - "app.json"
+      - "icon.png"
       - ".github/workflows/build-ios.yml"
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APP_VERSION: 1.0.${{ github.run_number }}
+  BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
   build:
@@ -37,6 +46,8 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
 
       - name: Package IPA
@@ -47,9 +58,41 @@ jobs:
           zip -qr RemoteDesk.ipa Payload
           ls -la RemoteDesk.ipa
 
-      - name: Upload IPA
+      - name: Fill app.json for the LiveContainer / AltStore source
+        run: |
+          python3 - <<'EOF'
+          import json, os, datetime
+          src = json.load(open("app.json", encoding="utf-8"))
+          v = src["apps"][0]["versions"][0]
+          v["version"] = os.environ["APP_VERSION"]
+          v["buildVersion"] = os.environ["BUILD_NUMBER"]
+          v["date"] = datetime.date.today().isoformat()
+          v["size"] = os.path.getsize("ios/RemoteDesk.ipa")
+          v["localizedDescription"] = "Build " + os.environ["BUILD_NUMBER"] + " (" + os.environ["GITHUB_SHA"][:7] + ")"
+          os.makedirs("release", exist_ok=True)
+          json.dump(src, open("release/app.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+          EOF
+          cp ios/RemoteDesk.ipa release/
+          cp icon.png release/
+          cat release/app.json
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: RemoteDesk-ipa
           path: ios/RemoteDesk.ipa
           if-no-files-found: error
+
+      - name: Publish "latest" release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          if gh release view latest >/dev/null 2>&1; then
+            gh release edit latest --title "RemoteDesk $APP_VERSION" --notes "Build $BUILD_NUMBER ($GITHUB_SHA)"
+          else
+            gh release create latest --title "RemoteDesk $APP_VERSION" --notes "Build $BUILD_NUMBER ($GITHUB_SHA)"
+          fi
+          gh release upload latest release/RemoteDesk.ipa release/app.json release/icon.png --clobber
