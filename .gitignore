@@ -1,0 +1,8 @@
+ios/RemoteDesk.xcodeproj/
+ios/build/
+ios/Payload/
+ios/*.ipa
+host/ffmpeg.exe
+host/ffmpeg/
+__pycache__/
+.DS_Store

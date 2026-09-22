@@ -1,0 +1,11 @@
+{
+  "port": 47000,
+  "pin": "",
+  "monitor": 0,
+  "fps": 60,
+  "bitrate_mbps": 20,
+  "encoder": "auto",
+  "scale_width": 0,
+  "gop": 60,
+  "max_backlog_frames": 3
+}

@@ -1,0 +1,59 @@
+name: RemoteDesk
+options:
+  bundleIdPrefix: com.nsan3
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  xcodeVersion: "16.0"
+targets:
+  RemoteDesk:
+    type: application
+    platform: iOS
+    sources:
+      - path: RemoteDesk
+    info:
+      path: RemoteDesk/Info.plist
+      properties:
+        CFBundleDisplayName: RemoteDesk
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+        NSLocalNetworkUsageDescription: "同じ Wi-Fi 内の PC を検索して接続するために使用します"
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nsan3.remotedesk
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_BITCODE: "NO"
+        SUPPORTS_MACCATALYST: "NO"
+schemes:
+  RemoteDesk:
+    build:
+      targets:
+        RemoteDesk: all
+    run:
+      config: Debug
+    archive:
+      config: Release
